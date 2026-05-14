@@ -1,0 +1,41 @@
+algorithm_description: RAPID2 river network routing model
+algorithm_name: rapid2
+algorithm_version: maap
+build_command: maap/build-env.sh
+disk_space: 10GB
+docker_container_url: mas.maap-project.org/root/maap-workspaces/custom_images/maap_base:v4.2.0
+inputs:
+  config: []
+  file:
+  - name: Qex_ncf
+    description: External inflow NetCDF
+    required: true
+    default: ''
+  - name: Q00_ncf
+    description: Initial discharge NetCDF
+    required: true
+    default: ''
+  - name: con_csv
+    description: River connectivity CSV
+    required: true
+    default: ''
+  - name: kpr_csv
+    description: Muskingum k parameter CSV
+    required: true
+    default: ''
+  - name: xpr_csv
+    description: Muskingum x parameter CSV
+    required: true
+    default: ''
+  - name: bas_csv
+    description: Basin identifier CSV
+    required: true
+    default: ''
+  positional:
+  - name: IS_dtR
+    description: Routing time step in seconds
+    required: true
+    default: '900'
+queue: maap-dps-worker-8gb
+repository_url: https://github.com/riverma/rapid2.git
+run_command: maap/run_rapid2.sh

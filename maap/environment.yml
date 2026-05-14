@@ -1,0 +1,13 @@
+name: rapid2
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.11
+  - pip
+  - pip:
+    - netCDF4==1.7.1.post2
+    - numpy==2.1.1
+    - scipy==1.14.1
+    - earthaccess==0.14.0
+    - rapid2
