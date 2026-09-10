@@ -10,7 +10,6 @@
 # *****************************************************************************
 # Import Python modules
 # *****************************************************************************
-import sys
 from typing import Optional
 
 import netCDF4
@@ -55,7 +54,7 @@ def read_std_vec(
 
     Examples
     --------
-    >>> std_ncf = './input/Sandbox/Qext_Sandbox_19700101_19700110.nc4'
+    >>> std_ncf = './input/Sandbox/Qex_Sandbox_19700101_19700110_TR.nc4'
     >>> (IV_riv_tot, ZV_lon_tot, ZV_lat_tot,\
          IV_tim_all, IM_tim_all) = read_std_vec(std_ncf)
     >>> IV_riv_tot
@@ -96,35 +95,28 @@ def read_std_vec(
     # Check dimensions exist
     # -------------------------------------------------------------------------
     if "rivid" not in s.dimensions:
-        print(f"ERROR - rivid dimension does not exist in {std_ncf}")
-        sys.exit(1)
+        raise ValueError(f"rivid dimension does not exist in {std_ncf}")
 
     if "time" not in s.dimensions:
-        print(f"ERROR - time dimension does not exist in {std_ncf}")
-        sys.exit(1)
+        raise ValueError(f"time dimension does not exist in {std_ncf}")
 
     # -------------------------------------------------------------------------
     # Check variables exist
     # -------------------------------------------------------------------------
     if "rivid" not in s.variables:
-        print(f"ERROR - rivid variable does not exist in {std_ncf}")
-        sys.exit(1)
+        raise ValueError(f"rivid variable does not exist in {std_ncf}")
 
     if "lon" not in s.variables:
-        print(f"ERROR - lon variable does not exist in {std_ncf}")
-        sys.exit(1)
+        raise ValueError(f"lon variable does not exist in {std_ncf}")
 
     if "lat" not in s.variables:
-        print(f"ERROR - lat variable does not exist in {std_ncf}")
-        sys.exit(1)
+        raise ValueError(f"lat variable does not exist in {std_ncf}")
 
     if "time" not in s.variables:
-        print(f"ERROR - time variable does not exist in {std_ncf}")
-        sys.exit(1)
+        raise ValueError(f"time variable does not exist in {std_ncf}")
 
     if "Qext" not in s.variables and "Qout" not in s.variables:
-        print(f"ERROR - No known main variable exist in {std_ncf}")
-        sys.exit(1)
+        raise ValueError(f"No known main variable exist in {std_ncf}")
 
     # -------------------------------------------------------------------------
     # Retrieve variables
@@ -136,11 +128,9 @@ def read_std_vec(
 
     if "time_bnds" in s.variables:
         if "nv" not in s.dimensions:
-            print(f"ERROR - nv dimension does not exist in {std_ncf}")
-            sys.exit(1)
+            raise ValueError(f"nv dimension does not exist in {std_ncf}")
         if len(s.dimensions["nv"]) != 2:
-            print(f"ERROR - nv dimension is not of size 2 in {std_ncf}")
-            sys.exit(1)
+            raise ValueError(f"nv dimension is not of size 2 in {std_ncf}")
 
         IM_tim_all = np.array(
             s.variables["time_bnds"][:].filled(), dtype=np.int32

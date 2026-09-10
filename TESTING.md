@@ -1,5 +1,19 @@
 # Testing
 
+> If wanting to rebuild from scratch:
+>
+> ```bash
+> rm -r ~/venv/
+> ```
+>
+> ```bash
+> /usr/bin/python3 -m venv ~/venv
+> ```
+>
+> ```bash
+> pip install .[dev]
+> ```
+
 ## Stating code analysis
 
 We leverage a variety of static code analysis tools as a means of checking and
@@ -14,7 +28,7 @@ pymarkdown scan *.md
 ```
 
 > We enforce a maximum line width of 79 characters using the
-> [`.pymarkdown.yml`][URL_CFG_MD]
+> [`.pymarkdown.yml`][LOC_CFG_MD]
 > configuration file.
 
 ### Yaml linter
@@ -26,7 +40,7 @@ yamllint .*.yml .github/*/*.yml
 ```
 
 > We enforce a maximum line width of 79 characters using the
-> [`.yamllint.yml`][URL_CFG_YM]
+> [`.yamllint.yml`][LOC_CFG_YM]
 > configuration file.
 
 ### Dockerfile linter
@@ -49,13 +63,13 @@ awk 'length>79 {print FILENAME ":"FNR">79"; exit 1}' Dockerfile
 We use `shellcheck` to lint our bash scripts.
 
 ```bash
-shellcheck *.sh tst/*.sh
+shellcheck *.sh
 ```
 
 > We also enforce a maximum line width of 79 characters.
 
 ```bash
-awk 'length>79 {print FILENAME ":"FNR">79"; exit 1}' *.sh tst/*.sh
+awk 'length>79 {print FILENAME ":"FNR">79"; exit 1}' *.sh
 ```
 
 ### Python linter and formatter
@@ -74,7 +88,7 @@ ruff format . --check
 
 > We enforce a maximum line width of 79 characters, version 3.11 of python,
 > as well as standard options for linting and formatting using the
-> [`pyproj.toml`][URL_CFG_PY]
+> [`pyproject.toml`][LOC_CFG_PY]
 > configuration file.
 
 ### Python type checker
@@ -86,13 +100,15 @@ mypy .
 ```
 
 > We enforce strict typing and python version 3.11 using the
-> [`pyproj.toml`][URL_CFG_PY]
+> [`pyproject.toml`][LOC_CFG_PY]
 > configuration file.
 
 ## Runtime testing
 
-Our runtime testing efforts leverage small unit tests as well as some larger
-efforts to replicate past results.
+RAPID comes along with a set of test files based on a synthetic experiment
+described in
+[`SANDBOX.md`][LOC_SNDBOX].
+on which our runtime testing efforts rely.
 
 ### Python docstrings check
 
@@ -104,8 +120,43 @@ python3 -m doctest src/rapid2/core/*.py
 
 ### Replication of past results
 
-To be added.
+```bash
+rapid2 -nml input/Sandbox/nml_Sandbox_TR.yml
+```
 
-[URL_CFG_MD]: https://github.com/c-h-david/rapid2/blob/main/.pymarkdown.yml
-[URL_CFG_YM]: https://github.com/c-h-david/rapid2/blob/main/.yamllint.yml
-[URL_CFG_PY]: https://github.com/c-h-david/rapid2/blob/main/pyproj.toml
+```bash
+subsampleqout \
+  -Qou output/Sandbox/Qou_Sandbox_19700101_19700110_TR.nc4 \
+  -obs input/Sandbox/obs_Sandbox.parquet \
+  -dtO 86400 \
+  -Qme input/Sandbox/Qob_Sandbox_19700101_19700110_TR_tst.nc4
+```
+
+```bash
+cmpncf \
+  -prv output/Sandbox/Qou_Sandbox_19700101_19700110_TR.nc4 \
+  -now output/Sandbox/Qou_Sandbox_19700101_19700110_TR_tst.nc4 \
+  -rtl 1e-10 \
+  -atl 1e-10
+```
+
+```bash
+cmpncf \
+  -prv output/Sandbox/Qfi_Sandbox_19700101_19700110_TR.nc4 \
+  -now output/Sandbox/Qfi_Sandbox_19700101_19700110_TR_tst.nc4 \
+  -rtl 1e-10 \
+  -atl 1e-10
+```
+
+```bash
+cmpncf \
+  -prv input/Sandbox/Qob_Sandbox_19700101_19700110_TR.nc4 \
+  -now input/Sandbox/Qob_Sandbox_19700101_19700110_TR_tst.nc4 \
+  -rtl 1e-10 \
+  -atl 1e-10
+```
+
+[LOC_SNDBOX]: SANDBOX.md
+[LOC_CFG_MD]: .pymarkdown.yml
+[LOC_CFG_YM]: .yamllint.yml
+[LOC_CFG_PY]: pyproject.toml

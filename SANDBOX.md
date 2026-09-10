@@ -2,7 +2,7 @@
 
 RAPID comes along with a set of test files based on a synthetic experiment.
 
-[![DOI:10.5281/zenodo.17298742][SVG_ZENODO]][URL_ZENODO]
+[![DOI:10.5281/zenodo.21248920][BDG_ZENODO]][URL_ZENODO]
 
 ## Study Domain
 
@@ -147,11 +147,11 @@ here defined as:
 \end{bmatrix}
 +
 \begin{bmatrix}
- 1      \\
- 1      \\
- 1      \\
- 2      \\
- 2
+ 5      \\
+ 5      \\
+ 5      \\
+ 10     \\
+ 10
 \end{bmatrix}
 \cdot
 \mathrm{sgn}\!\left( \sin\!\left(\tfrac{\pi t}{86400}
@@ -174,11 +174,11 @@ network:
 ```math
 \mathbf{Q^{T}}(0) =
 \begin{bmatrix}
- 9      \\
- 9      \\
- 27     \\
- 18     \\
- 63
+ 5      \\
+ 5      \\
+ 15     \\
+ 10     \\
+ 35
 \end{bmatrix}
 ```
 
@@ -189,6 +189,67 @@ This "true" inflow is used to generate the synthetic gage observations:
 ```math
 \mathbf{g^{T}}(t)
 ```
+
+## First Guess External Inflow
+
+To test data assimilation and bias correction, a flawed "first guess"
+external inflow is introduced. The network is partitioned such that reaches
+1, 2, and 3 overestimate the true mean and amplitude, while reaches 4 and 5
+underestimate them:
+
+```math
+\mathbf{Q^{eF}}(t) =
+\begin{bmatrix}
+ 15     \\
+ 15     \\
+ 15     \\
+ 5      \\
+ 5
+\end{bmatrix}
++
+\begin{bmatrix}
+ 15     \\
+ 15     \\
+ 15     \\
+ 5      \\
+ 5
+\end{bmatrix}
+\cdot
+\mathrm{sgn}\!\left( \sin\!\left(\tfrac{\pi t}{86400}
++
+\varepsilon\right) \right)
+```
+
+## First Guess Initial State
+
+To ensure the flawed simulation reaches a clean steady state within the
+daily cycles, the initial state is set to match the exact physical
+accumulation of the first guess low-flow routing:
+
+```math
+\mathbf{Q^{F}}(0) =
+\begin{bmatrix}
+ 0      \\
+ 0      \\
+ 0      \\
+ 0      \\
+ 0
+\end{bmatrix}
+```
+
+## Verification Experiments
+
+To verify the bias correction and data assimilation algorithms, the Sandbox
+includes a suite of five modular experiments. The "First Guess" (FG) flawed
+baseline is systematically corrected to recover the "True" (TR) state.
+
+| Experiment     | Files (*.nc4)                                    |
+| :------------- | :----------------------------------------------- |
+| Truth          | `Qex_TR`, `Q00_TR`, `Qou_TR`, `Qfi_TR`, `Qob_TR` |
+| Open Loop      | `Qex_FG`, `Q00_FG`, `Qou_OL`, `Qfi_OL`, `Qme_OL` |
+| Bias Correc.   | `Qex_FG`, `Q00_FG`, `Qou_BC`, `Qfi_BC`, `Qme_BC` |
+| Data Assim.    | `Qex_FG`, `Q00_FG`, `Qou_DA`, `Qfi_DA`, `Qme_DA` |
+| Hybrid BC/DA   | `Qex_FG`, `Q00_FG`, `Qou_HY`, `Qfi_HY`, `Qme_HY` |
 
 ## Notable Matrices
 
@@ -252,9 +313,9 @@ include:
 > drive.
 
 <!-- pyml disable-num-lines 30 line-length -->
-[SVG_ZENODO]: https://zenodo.org/badge/doi/10.5281/zenodo.17298742.svg
+[BDG_ZENODO]: https://zenodo.org/badge/doi/10.5281/zenodo.21248920.svg
 
-[URL_ZENODO]: https://doi.org/10.5281/zenodo.17298742
+[URL_ZENODO]: https://doi.org/10.5281/zenodo.21248920
 [URL_DA2011]: https://doi.org/10.1175/2011JHM1345.1
 [URL_DA2019]: https://doi.org/10.1029/2019GL083342
 [URL_STCKED]: https://stackedit.io/

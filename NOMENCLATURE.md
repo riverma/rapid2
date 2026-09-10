@@ -25,8 +25,8 @@ to accommodate external API terminology.
 
 | Code | Meaning            | Notes                                           |
 | ---- | ------------------ | ----------------------------------------------- |
-| `I`  | Integer            | Used for IDs, counters, and totals.             |
-| `J`  | Integer (iterated) | Used exclusively for loop indices.              |
+| `I`  | Integer (static)   | Used for IDs, static counters, and fixed sizes. |
+| `J`  | Integer (iterated) | Used for loop indices and evolving variables.   |
 | `Z`  | Float              | Used for discharge, coordinates, parameters.    |
 | `Y`  | String/character   | Used for variable names and text labels.        |
 | `B`  | Boolean            | Used for logical masks and status flags.        |
@@ -52,7 +52,6 @@ to accommodate external API terminology.
 | ---- | ------------------ | ----------------------------------------------- |
 | `riv`| River ID           | Unique identifier for each river reach (-).     |
 | `dwn`| Downstream ID      | Downstream identifier (-).                      |
-| `obs`| Observation ID     | Reach identifier where observations exist (-).  |
 | `kpr`| k parameter        | Muskingum parameter k (s).                      |
 | `xpr`| x parameter        | Muskingum parameter x (-).                      |
 | `C1p`| C1 parameter       | Muskingum parameter C1 (-).                     |
@@ -66,9 +65,13 @@ to accommodate external API terminology.
 | `Qex`| External inflow    | Flow of water entering from exterior (m^3/s).   |
 | `Qou`| Outflow discharge  | Flow of water exiting each reach (m^3/s).       |
 | `Qob`| Observed discharge | Flow of water from observations (m^3/s).        |
+| `Qme`| Model equivalent   | Model equivalent to observations (m^3/s).       |
+| `Qdi`| Discon. discharge  | Flow of water in disconnected network (m^3/s).  |
+| `lqe`| Little q ext       | External inflow (observation space) (m^3/s)     |
 | `Vol`| Volume             | Volume of water stored in the reach (m^3).      |
 | `lon`| Longitude          | Representative longitude of the reach (°).      |
 | `lat`| Latitude           | Representative latitude of the reach (°).       |
+| `lkm`| Length             | Linear distance or length (km).                 |
 | `skm`| Contributing area  | Area of the contributing catchment (km^2).      |
 | `scl`| Scaling factor     | Multiplier for scaling or unit conversion (-).  |
 | `rsf`| Surface runoff     | Flow of water over the land surface (kg/m^2/s). |
@@ -84,6 +87,7 @@ to accommodate external API terminology.
 | `rdf`| Relative difference| Relative difference (>=0) in `val` (-).         |
 | `atl`| Absolute tolerance | Acceptable absolute difference (varies).        |
 | `rtl`| Relative tolerance | Acceptable relative difference (-).             |
+| `MBy`| Megabytes          | Memory size footprint (MB).                     |
 
 ### `<dataset>`
 
@@ -93,35 +97,70 @@ to accommodate external API terminology.
 | Code | Meaning            | Notes (netCDF Dataset pointer)                  |
 | ---- | ------------------ | ----------------------------------------------- |
 | `nml`| Namelist           | Configuration and input file paths.             |
-| `bas`| Basin              | Subset of the full routing network.             |
+| `bas`| Basin              | Simulated subset of the full routing network.   |
 | `con`| Connectivity       | River network connectivity.                     |
 | `cpl`| Coupling           | Land surface model to river network mapping.    |
 | `crd`| Coordinates        | Geospatial longitude and latitude data.         |
+| `obs`| Observations       | Observed subset of the full routing network.    |
 | `lsm`| Land surface model | External boundary condition forcing data. (`c`) |
 | `m3r`| External volume    | Legacy file format for external volume. (`d`)   |
 | `Q00`| Initial outflow    | Initial outflow state of the network. (`e`)     |
 | `Qex`| External inflow    | NetCDF file containing forcing data. (`f`)      |
 | `Qou`| Outflow discharge  | NetCDF file containing routing results. (`g`)   |
 | `Qfi`| Final outflow      | Final outflow state of the network. (`h`)       |
+| `Qob`| Observed discharge | NetCDF file containing observations. (`o`)      |
+| `Qme`| Model equivalent   | NetCDF file containing model equivalent. (`m`)  |
 | `skl`| Skeleton           | Empty netCDF file structure for init. (`s`)     |
 | `std`| Standard           | Core metadata like time and coordinates. (`s`)  |
 | `prv`| Previous           | File from a prior run. (`p`)                    |
 | `now`| Current            | File from another run. (`n`)                    |
+| `hyd`| Hydrograph         | Time-series plot.                               |
+| `xyp`| X-Y Plot           | Scatter plots for statistical comparisons.      |
+| `cdf`| Distribution       | Cumulative distribution plots.                  |
 
 ### `<qualifier>`
 
+#### Size Guarantees
+
 | Code | Meaning            | Notes                                           |
 | ---- | ------------------ | ----------------------------------------------- |
-| `tot`| Total network      | Array length equals `IS_riv_tot`.               |
-| `bas`| Basin              | Array length equals `IS_riv_bas`.               |
-| `lsm`| Land surface model | Associated with the external LSM grid/domain.   |
+| `tot`| Total network      | Length is `IS_riv_tot` (entire routing domain). |
+| `bas`| Basin subset       | Length is `IS_riv_bas` (simulated subset).      |
+| `avl`| Available gages    | Length is `IS_riv_avl` (all observed reaches).  |
+| `act`| Active gages       | Length is `IS_riv_act` (used for correction).   |
+| `all`| All values         | Array length equals `IS_tim_all`.               |
+| `lsm`| Land surface model | Array dimensions match LSM grid (e.g., lat/lon).|
+
+#### Temporal States
+
+| Code | Meaning            | Notes                                           |
+| ---- | ------------------ | ----------------------------------------------- |
 | `prv`| Previous value     | Previous state of a dynamic variable.           |
 | `now`| Current value      | Current state of a dynamic variable.            |
 | `avg`| Average value      | Time-averaged dynamic variable.                 |
-| `all`| Complete sequence  | Used for arrays spanning the entire time domain.|
 | `tmp`| Temporary value    | Non-persistent, for computation or validation.  |
+
+#### Bounds and Extremes
+
+| Code | Meaning            | Notes                                           |
+| ---- | ------------------ | ----------------------------------------------- |
+| `max`| Maximum value      | Maximum bound or peak of a variable.            |
+| `min`| Minimum value      | Minimum bound or floor of a variable.           |
+
+#### Origins and Timescales
+
+| Code | Meaning            | Notes                                           |
+| ---- | ------------------ | ----------------------------------------------- |
 | `Qex`| External inflow    | Associated with the external forcing timescale. |
 | `Qob`| Observed discharge | Associated with the observation timescale.      |
+
+#### Statistics and Data Assimilation
+
+| Code | Meaning            | Notes                                           |
+| ---- | ------------------ | ----------------------------------------------- |
+| `cov`| Covariance         | Associated with covariance of errors.           |
+| `sdv`| Standard deviation | Associated with standard deviation of errors.   |
+| `inf`| Inflation          | Associated with artificial error inflation.     |
 
 ### `<concept>`
 
@@ -131,30 +170,42 @@ to accommodate external API terminology.
 | ---- | ------------------ | ----------------------------------------------- |
 | `Idt`| Identity matrix    | A must-have matrix for linear algebra.          |
 | `Net`| Network matrix     | Represents topological connectivity.            |
+| `Dis`| Disconnected Net   | Disconnected network matrix topology.           |
+| `Sel`| Selection matrix   | Maps active observation gauges to river reaches.|
 | `CCC`| Muskingum CCC      | C1, C2, and C3 Muskingum parameter matrices.    |
-| `ICN`| Identity minus C1N | Linear system matrix for Muskingum routing.
-| `ImN`| Identity minus N   | Linear system matrix for Lumped routing.
-| `Mus`| Muskingum          | The Muskingum routing physics and matrices.     |
+| `ICN`| Identity minus C1N | Linear system matrix for Muskingum routing.     |
+| `ImN`| Identity minus Net | Linear system matrix for Lumped routing.        |
+| `ImD`| Identity minus Dis | Linear system matrix for disconnected routing.  |
+| `Msk`| Muskingum physics  | Overarching Muskingum routing method & matrices.|
 | `Aex`| Ae operator        | Window mapping operator for external forcing.   |
 | `A00`| A0 operator        | Window mapping operator for initial state.      |
+| `SAe`| Sel × Aex operator | Selection-multiplied Aex operator matrix.       |
+| `SA0`| Sel × A00 operator | Selection-multiplied A00 operator matrix.       |
 | `Wdw`| Time window        | Temporal window for data assimilation.          |
+| `Wdx`| Time window, expl. | Explicit temporal window matrix operators.      |
+| `Crm`| Courant matrix     | Modified Courant routing matrix (C1 + C2).      |
+| `Nmn`| Neumann series     | The Neumann series expansion matrix.            |
 | `Lmp`| Lumped             | The Lumped routing physics and matrices.        |
+| `Mus`| Muskingum Operator | Transitive propagation matrix (I - C1 N)^-1.    |
 
 ### `<structure2>` (Memory Destinations)
 
 | Code | Meaning            | Notes                                           |
 | ---- | ------------------ | ----------------------------------------------- |
-| `vec`| Vector             | Assembled 1-dimensional array in memory.        |
-| `mat`| Matrix             | Assembled 2-dimensional sparse matrix.          |
-| `tbl`| Table              | Assembled dictionary or hash table.             |
+| `sca`| Scalar             | A 0-dimensional single value in memory.         |
+| `vec`| Vector             | A 1-dimensional array in memory.                |
+| `mat`| Matrix             | A 2-dimensional sparse matrix in memory.        |
+| `tbl`| Table              | A dictionary or hash table in memory.           |
 
 ### `<format>` (Disk Destinations)
 
 | Code | Meaning            | Notes                                           |
 | ---- | ------------------ | ----------------------------------------------- |
 | `csv`| Comma Separated    | Used for tabular text data and parameters.      |
+| `pqt`| Parquet            | Used for fast, columnar binary data.            |
 | `ncf`| NetCDF             | Used for scientific multi-dimensional data.     |
 | `yml`| YAML               | Used for model configuration inputs.            |
+| `svg`| Scalable Vector    | Used for vector-based plots and visualizations. |
 
 ## Semantic Quadruplets
 
@@ -168,9 +219,9 @@ to accommodate external API terminology.
 |`make`| Memory --> Memory  | Assembles arrays into complex structures.       |
 |`prep`| Memory --> Disk    | Initializes a file with static data.            |
 |`chck`| Memory --> Void    | Check arrays from file; raises error or logs.   |
-|`calc`| Memory --> Scalar  | Computes one-time mathematical constants.       |
-|`updt`| State --> State    | Advances physics through the time loop.         |
-|`assm`| State --> State    | Assimilates observations to correct states.     |
+|`calc`| Memory --> Memory  | Computes a static mathematical parameter.       |
+|`updt`| Memory --> Memory  | Advances a dynamic state through the time loop. |
+|`assm`| Memory --> Memory  | Assimilates observations to correct a state.    |
 
 ## Data Structure Names
 
@@ -194,16 +245,19 @@ still obey the `<type><structure1>_` prefix:
 - **Algebraic Idioms:** Data structures representing pure mathematical
   abstractions confined within a single function (e.g., right-hand side vectors
   `rhs` or `rh1`, equation denominators `den`, or Greek letter placeholders
-   like `Alp` or `Bet`).
+  like `Alp` or `Bet`, or mathematical properties like `nlp` for nilpotent).
 - **Sparse Matrix Idioms:** Standard coordinate arrays used for sparse matrix
   assembly (`row`, `col`, `val`).
 
 The following are exempt from strict triplet checking and `<type><structure1>_`
 prefix:
 
-- **Interface Idioms:** Conventional variables representing standard parsing
-  interfaces (e.g., `args`, `parser`) when used strictly for command-line or
-  configuration parsing (e.g., `argparse`, YAML loaders).
+- **Argparse Idioms:** Conventional variables representing standard parsing
+  interfaces (e.g., `args`, `parser`) when used strictly for configuration
+  parsing.
+- **PyArrow Toolbox Idioms:** Handles and configuration objects used as
+  transient interfaces during fast file I/O operations (e.g., `table`,
+  `read_options`) to maintain standard syntax with the `pyarrow` library.
 - **NetCDF Toolbox Idioms:** Handles for `netCDF4` objects to maintain direct
   mapping with disk-level structures:
   - **Datasets:** Must use the single character assigned in the `<dataset>`
@@ -221,9 +275,10 @@ prefix:
 
 | Code             | Meaning            | Notes                               |
 | ---------------- | ------------------ | ----------------------------------- |
-| `bas_csv`        | Basin info         | CSV file with subset of river IDs.  |
+| `bas_pqt`        | Basin info         | Parquet file with subset of IDs.    |
 | `Qex_ncf`        | External inflow    | NetCDF file containing forcing data.|
 | `nml_yml`        | Namelist           | YAML file for model configuration.  |
+| `hyd_svg`        | Hydrograph plot    | SVG file containing hydrographs.    |
 
 ## Function Names
 
@@ -234,7 +289,7 @@ cognitive load and preserve the visibility of the naming grammar.
 
 ### Readers (Disk -> Memory)
 
-**Pattern:** `read_<dataset>_<structure2>()`
+**Pattern:** `read_<dataset>_<structure2>()` or `read_<quantity>_<structure2>`
 
 **Examples:**
 
@@ -255,9 +310,9 @@ cognitive load and preserve the visibility of the naming grammar.
 | Code             | Meaning            | Notes                               |
 | ---------------- | ------------------ | ----------------------------------- |
 | `make_0bi_tbl()` | Make 0-base index  | Builds dictionary mapping to 0bi.   |
-| `make_net_mat()` | Make network mat   | Assembles connectivity matrix.      |
-| `make_ccc_mat()` | Make CCC matrix    | Assembles C1, C2, C3 matrices.      |
-| `make_lin_mat()` | Make linear mat    | Assembles linear routing system.    |
+| `make_Net_mat()` | Make network mat   | Assembles connectivity matrix.      |
+| `make_CCC_mat()` | Make CCC matrix    | Assembles C1, C2, C3 matrices.      |
+| `make_Msk_mat()` | Make Muskingum mat | Assembles linear system matrices.   |
 
 ### Preparers (Memory -> Disk)
 

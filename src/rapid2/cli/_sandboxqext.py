@@ -16,6 +16,7 @@ import sys
 
 import netCDF4
 import numpy as np
+from tqdm import tqdm
 
 from rapid2 import (
     __version__,
@@ -37,7 +38,7 @@ def main() -> None:
         ),
         epilog=(
             "examples:\n"
-            "  sandboxqext --scale 1 1 1 2 2 --average 10 10 10 "
+            "  sandboxqext --scale 5 5 5 10 10 --average 10 10 10 "
             "20 20 --external_inflow Qext_Sandbox.nc"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -97,67 +98,75 @@ def main() -> None:
     # Skip if file already exists
     # -------------------------------------------------------------------------
     if os.path.isfile(Qex_ncf):
-        print(f"WARNING - File already exists {Qex_ncf}. Exit without error")
+        print(f"WARNING - File already exists {Qex_ncf}. Skipping.")
         sys.exit(0)
 
     # -------------------------------------------------------------------------
-    # Hardcoded Sandbox values
+    # Execute main logic
     # -------------------------------------------------------------------------
-    IV_riv_tot = np.array([10, 20, 30, 40, 50], dtype=np.int32)
-    ZV_lon_tot = np.array([4.30, 5.94, 5.12, 6.55, 4.30])
-    ZV_lat_tot = np.array([8.20, 8.20, 5.12, 4.30, 2.04])
-    IV_tim_all = np.array(range(80), dtype=np.int32) * np.int32(10800)
+    try:
+        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+        # Hardcoded Sandbox values
+        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+        IV_riv_tot = np.array([10, 20, 30, 40, 50], dtype=np.int32)
+        ZV_lon_tot = np.array([4.30, 5.94, 5.12, 6.55, 4.30])
+        ZV_lat_tot = np.array([8.20, 8.20, 5.12, 4.30, 2.04])
+        IV_tim_all = np.array(range(80), dtype=np.int32) * np.int32(10800)
 
-    # -------------------------------------------------------------------------
-    # Array sizes
-    # -------------------------------------------------------------------------
-    IS_riv_tot = len(IV_riv_tot)
-    IS_tim_all = len(IV_tim_all)
+        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+        # Array sizes
+        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+        IS_riv_tot = len(IV_riv_tot)
+        IS_tim_all = len(IV_tim_all)
 
-    # -------------------------------------------------------------------------
-    # Check size of provided unit-amplitude scaling and average arrays
-    # -------------------------------------------------------------------------
-    if len(ZV_scl_tot) != IS_riv_tot:
-        print("ERROR - Unit-amplitude scaling array not of size 5.")
-        sys.exit(1)
+        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+        # Check size of provided unit-amplitude scaling and average arrays
+        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+        if len(ZV_scl_tot) != IS_riv_tot:
+            raise ValueError("Unit-amplitude scaling array not of size 5.")
 
-    if len(ZV_Qex_avg) != IS_riv_tot:
-        print("ERROR - Average array not of size 5.")
-        sys.exit(1)
+        if len(ZV_Qex_avg) != IS_riv_tot:
+            raise ValueError("Average array not of size 5.")
 
-    # -------------------------------------------------------------------------
-    # Create Qext file
-    # -------------------------------------------------------------------------
-    prep_Qex_ncf(IV_riv_tot, ZV_lon_tot, ZV_lat_tot, Qex_ncf)
+        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+        # Create Qext file
+        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+        prep_Qex_ncf(IV_riv_tot, ZV_lon_tot, ZV_lat_tot, Qex_ncf)
 
-    # -------------------------------------------------------------------------
-    # Populate Qext file
-    # -------------------------------------------------------------------------
-    f = netCDF4.Dataset(Qex_ncf, "a")
+        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+        # Populate Qext file
+        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+        f = netCDF4.Dataset(Qex_ncf, "a")
 
-    f.variables["time"][:] = IV_tim_all[:]
+        f.variables["time"][:] = IV_tim_all[:]
 
-    f.variables["time_bnds"][:, 0] = IV_tim_all[:]
-    f.variables["time_bnds"][:, 1] = IV_tim_all[:] + np.int32(10800)
+        f.variables["time_bnds"][:, 0] = IV_tim_all[:]
+        f.variables["time_bnds"][:, 1] = IV_tim_all[:] + np.int32(10800)
 
-    for JS_tim_all in range(IS_tim_all):
-        ZV_Qex_tmp = np.sign(
-            np.sin(np.pi / 86400 * IV_tim_all[JS_tim_all] + 1e-7)
+        for JS_tim_all in tqdm(
+            range(IS_tim_all), desc="Generating synthetic inflow"
+        ):
+            # The 1e-7 avoids np.sign(0) = 0
+            ZV_Qex_tmp = np.sign(
+                np.sin(np.pi / 86400 * IV_tim_all[JS_tim_all] + 1e-7)
+            )
+            ZV_Qex_tmp = ZV_Qex_tmp * ZV_scl_tot
+            ZV_Qex_tmp = ZV_Qex_tmp + ZV_Qex_avg
+            f.variables["Qext"][JS_tim_all, :] = ZV_Qex_tmp[:]
+
+        f.title = "Sandbox dataset for RAPID2"
+        f.institution = (
+            "Jet Propulsion Laboratory, California Institute of Technology"
         )
-        ZV_Qex_tmp = ZV_Qex_tmp * ZV_scl_tot
-        ZV_Qex_tmp = ZV_Qex_tmp + ZV_Qex_avg
-        f.variables["Qext"][JS_tim_all, :] = ZV_Qex_tmp[:]
-    # The 1e-7 avoids np.sign(0) = 0
 
-    f.title = "Sandbox dataset for RAPID2"
-    f.institution = (
-        "Jet Propulsion Laboratory, California Institute of Technology"
-    )
+        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+        # Close file
+        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+        f.close()
 
-    # -------------------------------------------------------------------------
-    # Close file
-    # -------------------------------------------------------------------------
-    f.close()
+    except (IOError, ValueError, KeyError) as e:
+        print(f"ERROR - {e}", file=sys.stderr)
+        sys.exit(1)
 
 
 # *****************************************************************************

@@ -92,7 +92,7 @@ def prep_skl_ncf(
     time.calendar = "gregorian"
 
     rivid = s.createVariable("rivid", "int32", ("rivid",))
-    rivid.long_name = "unique identifier for each river each"
+    rivid.long_name = "unique identifier for each river reach"
     rivid.units = "1"
     rivid.cf_role = "timeseries_id"
 
@@ -133,10 +133,9 @@ def prep_skl_ncf(
     s.featureType = "timeSeries"
 
     # -------------------------------------------------------------------------
-    # Close file
+    # Close file to allow populating all data
     # -------------------------------------------------------------------------
     s.close()
-    # Closing the new netCDF file allows populating all data
 
 
 # *****************************************************************************
