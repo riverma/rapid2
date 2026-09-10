@@ -14,12 +14,16 @@
 # Configuration
 # *****************************************************************************
 plugins:
+  md004:
+    style: dash
   md013:
     enabled: true
     line_length: 79
     heading_line_length: 79
     code_block_line_length: 79
     strict: true
+  md024:
+    siblings_only: true
 
 
 # *****************************************************************************

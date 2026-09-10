@@ -18,7 +18,7 @@
 
 [![lint: ruff][BDG___RUFF]][URL___RUFF]
 [![type: mypy][BDG___MYPY]][URL___MYPY]
-[![test: doctest][BDG_DOCTST]][URL_DOCT]
+[![test: doctest][BDG_DOCTST]][URL_DOCTST]
 
 [![License (3-Clause BSD)][BDG_BSD3CL]][URL_BSD3CL]
 [![Contributor Covenant][BDG_CONDUC]][URL_CONDUC]
@@ -32,7 +32,7 @@ thousands of reaches.
 
 > **Note:** While the underlying RAPID routing methodology is highly mature and
 > battle-tested in operational environments, this specific Python 3 codebase
-> (RAPID2) is currently in Beta (v2.0.0b1) and under active development.
+> (RAPID2) is currently in Beta (v2.0.0b3) and under active development.
 
 Notable links:
 
@@ -81,28 +81,28 @@ pip install .
 ### Run Instructions
 
 ```bash
-rapid2 --namelist namelist_Sandbox.yml
+rapid2 --namelist nml_Sandbox_TR.yml
 ```
 
 ### Usage Examples
 
-Below is an example of what `namelist_Sandbox.yml` should include:
+Below is an example of what `nml_Sandbox_TR.yml` includes:
 
 ```yaml
 ---
-Qex_ncf: './input/Sandbox/Qext_Sandbox_19700101_19700110.nc4'
-Q00_ncf: './input/Sandbox/Qinit_Sandbox_19700101_19700110.nc4'
+Qex_ncf: './input/Sandbox/Qex_Sandbox_19700101_19700110_TR.nc4'
+Q00_ncf: './input/Sandbox/Q00_Sandbox_19700101_19700110_TR.nc4'
 
-con_csv: './input/Sandbox/rapid_connect_Sandbox.csv'
-kpr_csv: './input/Sandbox/k_Sandbox.csv'
-xpr_csv: './input/Sandbox/x_Sandbox.csv'
+con_pqt: './input/Sandbox/con_Sandbox.parquet'
+kpr_pqt: './input/Sandbox/kpr_Sandbox.parquet'
+xpr_pqt: './input/Sandbox/xpr_Sandbox.parquet'
 
-bas_csv: './input/Sandbox/riv_bas_id_Sandbox.csv'
+bas_pqt: './input/Sandbox/bas_Sandbox_ascend.parquet'
 
 IS_dtR: 900
 
-Qou_ncf: './output/Sandbox/Qout_Sandbox_19700101_19700110_tst.nc4'
-Qfi_ncf: './output/Sandbox/Qfinal_Sandbox_19700101_19700110_tst.nc4'
+Qou_ncf: './output/Sandbox/Qou_Sandbox_19700101_19700110_TR_tst.nc4'
+Qfi_ncf: './output/Sandbox/Qfi_Sandbox_19700101_19700110_TR_tst.nc4'
 ```
 
 ### Build Instructions
@@ -214,7 +214,7 @@ For sensitive matters that cannot be shared publicly, contact
 
 [URL___RUFF]: https://docs.astral.sh/ruff/
 [URL___MYPY]: https://mypy-lang.org/
-[URL_DOCT]: https://docs.python.org/3/library/doctest.html
+[URL_DOCTST]: https://docs.python.org/3/library/doctest.html
 
 [URL_BSD3CL]: https://github.com/c-h-david/rapid2/blob/main/LICENSE
 [URL_CONDUC]: https://github.com/c-h-david/rapid2/blob/main/CODE_OF_CONDUCT.md

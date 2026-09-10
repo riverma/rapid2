@@ -27,6 +27,10 @@ def make_0bi_tbl(
     one array with the index in connectivity file corresponding to each river
     ID in the basin file.
 
+    While the variables are named for the total domain (`_tot`) and the basin
+    subset (`_bas`), this function is mathematically generic and can map any
+    subset array of river IDs to its corresponding superset array.
+
     Parameters
     ----------
     IV_riv_tot : ndarray[int32]
@@ -59,26 +63,35 @@ def make_0bi_tbl(
        np.int32(40): 3,\
        np.int32(50): 4},\
       array([0, 1, 2, 3, 4], dtype=int32))
+    >>> IV_riv_avl = np.array([30, 50], dtype=np.int32)
+    >>> make_0bi_tbl(IV_riv_bas, IV_riv_avl) # doctest: +NORMALIZE_WHITESPACE
+     ({np.int32(10): 0,\
+       np.int32(20): 1,\
+       np.int32(30): 2,\
+       np.int32(40): 3,\
+       np.int32(50): 4},\
+      {np.int32(30): 0,\
+       np.int32(50): 1},\
+      array([2, 4], dtype=int32))
     """
 
+    # IT_0bi_tot[IS_riv] = JS_riv_tot
     IS_riv_tot = len(IV_riv_tot)
     IT_0bi_tot = {}
     for JS_riv_tot in range(IS_riv_tot):
         IT_0bi_tot[IV_riv_tot[JS_riv_tot]] = JS_riv_tot
-    # IT_0bi_tot[IS_riv] = JS_riv_tot
 
+    # IT_0bi_bas[IS_riv] = JS_riv_bas
     IS_riv_bas = len(IV_riv_bas)
     IT_0bi_bas = {}
     for JS_riv_bas in range(IS_riv_bas):
         IT_0bi_bas[IV_riv_bas[JS_riv_bas]] = JS_riv_bas
-    # IT_0bi_bas[IS_riv] = JS_riv_bas
 
+    # IV_0bi_bas[JS_riv_bas] = JS_riv_tot
+    # IV_riv_tot[JS_riv_tot] == IV_riv_bas[JS_riv_bas]
     IV_0bi_bas = np.zeros(IS_riv_bas, dtype=np.int32)
     for JS_riv_bas in range(IS_riv_bas):
         IV_0bi_bas[JS_riv_bas] = IT_0bi_tot[IV_riv_bas[JS_riv_bas]]
-    # This array allows for index mapping such that IV_riv_tot[JS_riv_tot]
-    #                                             = IV_riv_bas[JS_riv_bas]
-    # IV_0bi_bas[JS_riv_bas] = JS_riv_tot
 
     return IT_0bi_tot, IT_0bi_bas, IV_0bi_bas
 

@@ -10,18 +10,16 @@
 # *****************************************************************************
 # Import Python modules
 # *****************************************************************************
-import sys
-
 import numpy as np
 import numpy.typing as npt
-import pyarrow.csv as pv
+import pyarrow.parquet as pq
 
 
 # *****************************************************************************
 # Connectivity function
 # *****************************************************************************
 def read_cpl_vec(
-    cpl_csv: str,
+    cpl_pqt: str,
 ) -> tuple[
     npt.NDArray[np.int32],
     npt.NDArray[np.float64],
@@ -34,7 +32,7 @@ def read_cpl_vec(
 
     Parameters
     ----------
-    cpl_csv : str
+    cpl_pqt : str
         Path to the coupling file.
 
     Returns
@@ -50,8 +48,8 @@ def read_cpl_vec(
 
     Examples
     --------
-    >>> cpl_csv = './input/Sandbox/rapid_coupling_Sandbox.csv'
-    >>> read_cpl_vec(cpl_csv) # doctest: +NORMALIZE_WHITESPACE
+    >>> cpl_pqt = './input/Sandbox/cpl_Sandbox.parquet'
+    >>> read_cpl_vec(cpl_pqt) # doctest: +NORMALIZE_WHITESPACE
     (array([10, 20, 30, 40, 50], dtype=int32),\
      array([1., 1., 1., 1., 1.]),\
      array([1, 1, 1, 1, 1], dtype=int32),\
@@ -59,22 +57,18 @@ def read_cpl_vec(
     """
 
     # -------------------------------------------------------------------------
-    # Read CSV and populate arrays
+    # Read Parquet and populate arrays
     # -------------------------------------------------------------------------
     try:
-        read_options = pv.ReadOptions(
-            column_names=["riv", "skm", "1bi", "1bj"]
-        )
-        table = pv.read_csv(cpl_csv, read_options=read_options)
+        table = pq.read_table(cpl_pqt, columns=["riv", "skm", "1bi", "1bj"])
 
         IV_riv_tot = table.column("riv").to_numpy().astype(np.int32)
         ZV_skm_tot = table.column("skm").to_numpy().astype(np.float64)
         IV_1bi_tot = table.column("1bi").to_numpy().astype(np.int32)
         IV_1bj_tot = table.column("1bj").to_numpy().astype(np.int32)
 
-    except IOError:
-        print(f"ERROR - Unable to open {cpl_csv}")
-        sys.exit(1)
+    except IOError as e:
+        raise IOError(f"Unable to open {cpl_pqt}") from e
 
     return IV_riv_tot, ZV_skm_tot, IV_1bi_tot, IV_1bj_tot
 

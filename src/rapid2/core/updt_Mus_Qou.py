@@ -96,8 +96,9 @@ def updt_Mus_Qou(
     array([1.      , 1.      , 1.46875 , 1.      , 1.390625])
     """
 
-    ZV_Qou = ZV_Qou_prv
     # Isolate the active iterating state to preserve the initial boundary
+    ZV_Qou = ZV_Qou_prv
+
     ZV_Qou_avg = np.zeros(len(ZV_Qou_prv))
     ZV_rh1 = ZM_Qex @ ZV_Qex_avg
 
@@ -119,8 +120,6 @@ def updt_Mus_Qou(
             ZM_ICN, ZV_rhs, lower=True, unit_diagonal=True
         )
     ZV_Qou_avg = ZV_Qou_avg / IS_rat_Qex
-
-    ZV_Qou_avg = ZV_Qou_avg
     ZV_Qou_now = ZV_Qou
 
     return ZV_Qou_avg, ZV_Qou_now
