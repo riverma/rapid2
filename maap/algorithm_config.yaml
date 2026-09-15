@@ -15,20 +15,20 @@ inputs:
     description: Initial discharge NetCDF
     required: true
     default: ''
-  - name: con_csv
-    description: River connectivity CSV
+  - name: con_pqt
+    description: River connectivity Parquet
     required: true
     default: ''
-  - name: kpr_csv
-    description: Muskingum k parameter CSV
+  - name: kpr_pqt
+    description: Muskingum k parameter Parquet
     required: true
     default: ''
-  - name: xpr_csv
-    description: Muskingum x parameter CSV
+  - name: xpr_pqt
+    description: Muskingum x parameter Parquet
     required: true
     default: ''
-  - name: bas_csv
-    description: Basin identifier CSV
+  - name: bas_pqt
+    description: Basin identifier Parquet
     required: true
     default: ''
   positional:
