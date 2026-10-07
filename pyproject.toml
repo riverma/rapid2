@@ -50,6 +50,9 @@ dependencies = [
     "pyarrow>=24.0.0",
     "toyplot>=2.1.0",
     "pooch>=1.9.0",
+    "plotly>=5.24.0",
+    "kaleido>=1.0",
+    "imageio>=2.36.0",
 ]
 
 [project.optional-dependencies]
