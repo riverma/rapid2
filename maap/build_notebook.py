@@ -1244,37 +1244,42 @@ else:
 
 # ---------------------------------------------------------------------------
 cells.append(md("""\
-## Step 10: Animated basin-location globe (showcase basins)
+## Step 10: Animated basin-location map (showcase basins)
 
 A compact visual summary for the showcase basins in `BASINS_TO_RUN` (defaults to Mississippi
 `pfaf_74`, Columbia `pfaf_76`, Amazon `pfaf_62`, Danube `pfaf_22`): each basin's main-stem reach
-(the same reach Step 9 plots) is placed as a dot on an orthographic globe at its outlet
-coordinates, and the dot's size/color pulses month-by-month with that reach's monthly-mean
-discharge.
+(the same reach Step 9 plots) is placed as a dot on a flat world map at its outlet coordinates,
+and the dot's size/color pulses month-by-month with that reach's monthly-mean discharge.
+
+Rendered with `matplotlib` + `cartopy` (no browser/Chrome dependency — an earlier Plotly +
+`kaleido` version was abandoned here because `kaleido`'s bundled headless Chrome failed to launch
+inside the MAAP Hub container). `cartopy` needs its `cartopy.feature` coastline/ocean/border
+shapefiles, which download from Natural Earth on first use if not already cached — if the Hub
+blocks that host, this step will fail the same way the Chrome approach did, just for a different
+reason; there's no local fallback for that case today.
 
 Discharge magnitude varies enormously across basins (the Amazon's mean flow is roughly one to two
-orders of magnitude larger than the Danube's), so marker size/color are normalized **per basin**
-(each basin's own min-to-max range over the simulated span maps to the same visual size range)
-rather than on one shared scale — otherwise smaller basins would be invisible dots next to the
-Amazon. The hydrograph panel above (Step 9) is where absolute magnitudes are compared correctly,
-in physical units.
-
-This step is interactive, in two cells:
-1. Drag the globe below to whatever viewing angle shows all your basins well, then read the
-   rotation lon/lat printed under the chart.
-2. Paste those two numbers into `CAMERA_ROTATION` in the next cell, which renders one static frame
-   per month at that fixed angle and stitches them into a downloadable `.gif` — a static export
-   can't be dragged, so the angle has to be locked in before rendering."""))
+orders of magnitude larger than the Danube's). Marker size/color use **one shared log-scaled
+range across all basins**, not a per-basin scale — so the Amazon's dot is genuinely, visibly
+bigger than the Danube's (true to reality), while a size cap (`MAX_SIZE` below) keeps it from
+dominating the map. This trades off some of each basin's own month-to-month pulsing visibility
+for an honest cross-basin size comparison; the hydrograph panel above (Step 9) is where absolute
+magnitudes are read precisely, in physical units."""))
 
 cells.append(code("""\
-# plotly + kaleido (static image export) + imageio (GIF stitching) are only
-# needed for this step's basin-globe animation, not the core RAPID2 routing
-# path, so installed separately from rapid2 itself, right where first used.
-!pip install -q "plotly>=5.24.0" "kaleido>=1.0" "imageio>=2.36.0" """))
+# cartopy (coastlines/land/ocean) + imageio (GIF stitching) are only needed
+# for this step's basin-location map, not the core RAPID2 routing path, so
+# installed separately from rapid2 itself, right where first used. matplotlib
+# is already used by Step 9. cartopy's own compiled dependencies (GEOS, PROJ)
+# are commonly preinstalled via conda on geospatial-oriented images -- if this
+# pip install fails, try `conda install -c conda-forge cartopy` instead.
+!pip install -q "cartopy>=0.23.0" "imageio>=2.36.0" """))
 
 cells.append(code("""\
 import pyarrow.parquet as pq
-import plotly.graph_objects as go
+import cartopy.crs as ccrs
+import cartopy.feature as cfeature
+import imageio.v2 as imageio
 
 BASIN_LABELS = {
     "pfaf_74": "Mississippi", "pfaf_76": "Columbia",
@@ -1286,7 +1291,7 @@ def basin_outlet_lonlat(basin, rivid_order, main_idx):
     \"\"\"(lon, lat) of the main-stem reach Step 9 already picked for this basin.
 
     Re-reads crd_<basin>.parquet (riv -> lon/lat) and looks up main_idx's river
-    ID there, so the globe dot and the Step 9 hydrograph line refer to the
+    ID there, so the map dot and the Step 9 hydrograph line refer to the
     exact same physical reach -- rather than independently re-deriving "the
     outlet" from con's dwn==0 topology, which can have >1 candidate reach for
     a basin with multiple river-mouths/deltas. Returns (None, None) with a
@@ -1319,13 +1324,25 @@ def monthly_mean_discharge(t, q, main_idx, months):
             for mo in months]
 
 
-def normalize(values):
-    \"\"\"Map one basin's own min..max discharge to 0..1 (NaN-safe, flat-safe).\"\"\"
-    arr = np.array(values, dtype=float)
-    finite = arr[~np.isnan(arr)]
-    if len(finite) == 0 or finite.max() == finite.min():
-        return np.full_like(arr, 0.5)
-    return (arr - finite.min()) / (finite.max() - finite.min())
+def log_normalize_shared(rows):
+    \"\"\"Map every basin's discharge onto ONE log-scaled 0..1 range.
+
+    Unlike a per-basin min-max (where a small river's dot can look as big as
+    a huge one at their respective peaks), this keeps dot size meaningful
+    across basins: the Amazon's dot is genuinely, visibly bigger than the
+    Danube's. log10() compresses a >10x discharge gap into something that
+    still fits on one map; MAX_SIZE below caps the biggest dot so it can
+    never dominate the plot.
+    \"\"\"
+    all_q = np.concatenate([np.asarray(r["monthly_q"], dtype=float) for r in rows])
+    all_q = all_q[~np.isnan(all_q) & (all_q > 0)]
+    log_q = np.log10(all_q)
+    lo, hi = log_q.min(), log_q.max()
+    for r in rows:
+        q = np.asarray(r["monthly_q"], dtype=float)
+        with np.errstate(divide="ignore"):
+            lq = np.where(q > 0, np.log10(np.where(q > 0, q, 1)), lo)
+        r["norm"] = np.clip((lq - lo) / (hi - lo), 0, 1) if hi > lo else np.full_like(lq, 0.5)
 
 
 # --- Resolve each showcase basin's main-stem reach, outlet coords, monthly series ---
@@ -1344,103 +1361,54 @@ for basin in BASINS_TO_RUN:
     globe_rows.append({"basin": basin, "label": BASIN_LABELS.get(basin, basin),
                        "lon": lon, "lat": lat, "monthly_q": monthly_q})
 
-MIN_SIZE, MAX_SIZE = 8, 40        # marker px size range
-for row in globe_rows:
-    row["norm"] = normalize(row["monthly_q"])
-    row["size"] = MIN_SIZE + row["norm"] * (MAX_SIZE - MIN_SIZE)
+print(f"Resolved {len(globe_rows)}/{len(BASINS_TO_RUN)} showcase basin(s) for the map.")
 
-print(f"Resolved {len(globe_rows)}/{len(BASINS_TO_RUN)} showcase basin(s) for the globe.")
+if globe_rows:
+    MIN_SIZE, MAX_SIZE = 60, 500      # scatter marker *area* (points^2), matplotlib's s=
+    log_normalize_shared(globe_rows)
+    for row in globe_rows:
+        row["size"] = MIN_SIZE + row["norm"] * (MAX_SIZE - MIN_SIZE)
 
+    MAP_DIR = OUTPUT_DIR / "map_frames"
+    MAP_DIR.mkdir(exist_ok=True)
+    cmap = plt.get_cmap("Blues")
 
-def frame_trace(frame_idx):
-    return go.Scattergeo(
-        lon=[r["lon"] for r in globe_rows],
-        lat=[r["lat"] for r in globe_rows],
-        text=[f"{r['label']}: {r['monthly_q'][frame_idx]:.0f} m3/s" for r in globe_rows],
-        mode="markers+text",
-        textposition="top center",
-        marker=dict(
-            size=[r["size"][frame_idx] for r in globe_rows],
-            color=[r["norm"][frame_idx] for r in globe_rows],
-            colorscale="Blues", cmin=0, cmax=1,
-            line=dict(width=1, color="darkslategray"),
-        ),
-    )
+    frame_paths = []
+    for i, month in enumerate(MONTHS):
+        fig = plt.figure(figsize=(10, 6))
+        ax = plt.axes(projection=ccrs.PlateCarree())
+        ax.set_global()
+        ax.add_feature(cfeature.LAND, facecolor="#ebebeb")
+        ax.add_feature(cfeature.OCEAN, facecolor="#e6f5ff")
+        ax.add_feature(cfeature.COASTLINE, linewidth=0.5, edgecolor="#555555")
+        ax.add_feature(cfeature.BORDERS, linewidth=0.3, edgecolor="#888888")
+        ax.gridlines(draw_labels=False, linewidth=0.2, color="#cccccc")
 
+        lons = [r["lon"] for r in globe_rows]
+        lats = [r["lat"] for r in globe_rows]
+        sizes = [r["size"][i] for r in globe_rows]
+        colors = [r["norm"][i] for r in globe_rows]
+        ax.scatter(lons, lats, s=sizes, c=colors, cmap=cmap, vmin=0, vmax=1,
+                   edgecolors="darkslategray", linewidths=0.8,
+                   transform=ccrs.PlateCarree(), zorder=5)
 
-DEFAULT_ROTATION = dict(lon=-40, lat=15)   # Atlantic-facing; fits the 4 default basins
+        for r in globe_rows:
+            ax.text(r["lon"], r["lat"] + 4, f"{r['label']}: {r['monthly_q'][i]:.0f} m3/s",
+                     ha="center", fontsize=8, transform=ccrs.PlateCarree(), zorder=6)
 
-interactive_fig = go.Figure(
-    data=[frame_trace(0)],
-    layout=go.Layout(
-        title=f"Monthly discharge — {CAMPAIGN} ({MONTHS[0]}) — drag to rotate",
-        geo=dict(projection_type="orthographic", showland=True,
-                 landcolor="rgb(235,235,235)", showocean=True,
-                 oceancolor="rgb(230,245,255)", showcountries=True,
-                 projection_rotation=DEFAULT_ROTATION),
-        width=700, height=700,
-    ),
-)
+        ax.set_title(f"Monthly discharge — {CAMPAIGN} ({month})", fontsize=12)
+        png_path = MAP_DIR / f"frame_{i:02d}.png"
+        fig.savefig(str(png_path), dpi=120, bbox_inches="tight")
+        plt.close(fig)
+        frame_paths.append(png_path)
 
-# Live rotation readout: a plain HTML/JS snippet (no ipywidgets needed) that
-# listens for plotly's own relayout event and prints the current rotation
-# lon/lat as you drag -- read those two numbers off for CAMERA_ROTATION below.
-from IPython.display import display, HTML
-
-interactive_fig.show()
-display(HTML(\"\"\"
-<div id="rotation-readout" style="font-family: monospace; font-size: 14px;
-     padding: 10px; border: 1px solid #ccc; margin-top: 6px;">
-  Drag the globe above -- the current rotation will appear here.
-</div>
-<script>
-(function () {
-  var divs = document.getElementsByClassName('plotly-graph-div');
-  var gd = divs[divs.length - 1];
-  if (!gd) { return; }
-  gd.on('plotly_relayout', function (ev) {
-    var lon = ev['geo.projection.rotation.lon'];
-    var lat = ev['geo.projection.rotation.lat'];
-    if (lon !== undefined || lat !== undefined) {
-      document.getElementById('rotation-readout').innerText =
-        'CAMERA_ROTATION = dict(lon=' + lon.toFixed(1) + ', lat=' + lat.toFixed(1) + ')';
-    }
-  });
-})();
-</script>
-\"\"\"))
-print("Drag the globe above, then copy the printed CAMERA_ROTATION line into the next cell.")"""))
-
-cells.append(code("""\
-# Edit to match whatever the readout above showed after you dragged the globe.
-CAMERA_ROTATION = dict(lon=-40, lat=15)
-
-GIF_DIR = OUTPUT_DIR / "globe_frames"
-GIF_DIR.mkdir(exist_ok=True)
-
-static_layout = go.Layout(
-    geo=dict(projection_type="orthographic", showland=True,
-             landcolor="rgb(235,235,235)", showocean=True,
-             oceancolor="rgb(230,245,255)", showcountries=True,
-             projection_rotation=CAMERA_ROTATION),
-    width=800, height=800, margin=dict(l=10, r=10, t=60, b=10),
-)
-
-frame_paths = []
-for i, month in enumerate(MONTHS):
-    frame_fig = go.Figure(data=[frame_trace(i)], layout=static_layout)
-    frame_fig.update_layout(title=f"Monthly discharge — {CAMPAIGN} ({month})")
-    png_path = GIF_DIR / f"frame_{i:02d}.png"
-    frame_fig.write_image(str(png_path), width=800, height=800, scale=1)
-    frame_paths.append(png_path)
-
-import imageio.v2 as imageio
-
-gif_path = OUTPUT_DIR / f"basin_globe_{CAMPAIGN}.gif"
-images = [imageio.imread(p) for p in frame_paths]
-imageio.mimsave(str(gif_path), images, duration=1000, loop=0)   # ms per frame
-print(f"Saved {len(frame_paths)}-frame GIF: {gif_path} "
-      f"({gif_path.stat().st_size / 1e6:.2f} MB)")"""))
+    gif_path = OUTPUT_DIR / f"basin_map_{CAMPAIGN}.gif"
+    images = [imageio.imread(p) for p in frame_paths]
+    imageio.mimsave(str(gif_path), images, duration=1000, loop=0)   # ms per frame
+    print(f"Saved {len(frame_paths)}-frame GIF: {gif_path} "
+          f"({gif_path.stat().st_size / 1e6:.2f} MB)")
+else:
+    print("No showcase basins resolved — nothing to animate.")"""))
 
 # ---------------------------------------------------------------------------
 cells.append(md("""\
