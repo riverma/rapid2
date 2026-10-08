@@ -214,7 +214,7 @@ ALL_BASINS = ["pfaf_11", "pfaf_12", "pfaf_13", "pfaf_14", "pfaf_15", "pfaf_16",
               "pfaf_77", "pfaf_78",
               "pfaf_81", "pfaf_82", "pfaf_83", "pfaf_84", "pfaf_85", "pfaf_86",
               "pfaf_91"]
-BASINS_TO_RUN = ["pfaf_74", "pfaf_76", "pfaf_62", "pfaf_22"]  # Miss., Columbia, Amazon, Danube
+BASINS_TO_RUN = ["pfaf_74", "pfaf_45", "pfaf_62", "pfaf_22"]  # Mississippi, Ganges, Amazon, Danube
 
 # --- Campaign tag: groups all this run's DPS jobs for batch monitoring ---
 CAMPAIGN = f"mm_{START_YEAR}{START_MONTH:02d}_n{N_MONTHS}_c{CHUNK_MONTHS}"
@@ -1247,9 +1247,18 @@ cells.append(md("""\
 ## Step 10: Animated basin-location map (showcase basins)
 
 A compact visual summary for the showcase basins in `BASINS_TO_RUN` (defaults to Mississippi
-`pfaf_74`, Columbia `pfaf_76`, Amazon `pfaf_62`, Danube `pfaf_22`): each basin's main-stem reach
+`pfaf_74`, Ganges `pfaf_45`, Amazon `pfaf_62`, Danube `pfaf_22`): each basin's main-stem reach
 (the same reach Step 9 plots) is placed as a dot on a flat world map at its outlet coordinates,
 and the dot's size/color pulses month-by-month with that reach's monthly-mean discharge.
+
+Each `pfaf_XX` code names an entire Pfafstetter level-2 *region* (often hundreds of independent
+river mouths), not a single named river — there is no basin-name lookup table published anywhere
+for this dataset (checked the Zenodo record itself and HydroBASINS/MERIT-Basins documentation).
+The 4 names above were confirmed by downloading each basin's real `con`/`crd` parquet from Zenodo
+record 20672740 and finding the *dominant* outlet (the one draining the most upstream reaches):
+`pfaf_74` → Mississippi mouth, `pfaf_62` → Amazon mouth, `pfaf_45` → Ganges-Brahmaputra delta,
+`pfaf_22` → Danube delta. A previously-assumed `pfaf_76` = "Columbia" was wrong — its dominant
+outlet is actually in Cuba, not the Pacific Northwest — so it was dropped from this showcase set.
 
 Rendered with `matplotlib` + `cartopy` (no browser/Chrome dependency — an earlier Plotly +
 `kaleido` version was abandoned here because `kaleido`'s bundled headless Chrome failed to launch
@@ -1259,12 +1268,10 @@ blocks that host, this step will fail the same way the Chrome approach did, just
 reason; there's no local fallback for that case today.
 
 Discharge magnitude varies enormously across basins (the Amazon's mean flow is roughly one to two
-orders of magnitude larger than the Danube's). Marker size/color use **one shared log-scaled
-range across all basins**, not a per-basin scale — so the Amazon's dot is genuinely, visibly
-bigger than the Danube's (true to reality), while a size cap (`MAX_SIZE` below) keeps it from
-dominating the map. This trades off some of each basin's own month-to-month pulsing visibility
-for an honest cross-basin size comparison; the hydrograph panel above (Step 9) is where absolute
-magnitudes are read precisely, in physical units."""))
+orders of magnitude larger than the Danube's). Marker size/color use **one shared LINEAR scale
+across all basins** — true relative sizes, no log compression — so if the Amazon carries 3x the
+Mississippi's flow, its dot's area is genuinely ~3x larger. The hydrograph panel above (Step 9) is
+where absolute magnitudes are read precisely, in physical units."""))
 
 cells.append(code("""\
 # cartopy (coastlines/land/ocean) + imageio (GIF stitching) are only needed
@@ -1281,8 +1288,10 @@ import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 import imageio.v2 as imageio
 
+# Verified against real con/crd parquet from Zenodo 20672740: each code's
+# *dominant* outlet (by upstream-reach count) matches the named river below.
 BASIN_LABELS = {
-    "pfaf_74": "Mississippi", "pfaf_76": "Columbia",
+    "pfaf_74": "Mississippi", "pfaf_45": "Ganges",
     "pfaf_62": "Amazon", "pfaf_22": "Danube",
 }
 
@@ -1324,25 +1333,22 @@ def monthly_mean_discharge(t, q, main_idx, months):
             for mo in months]
 
 
-def log_normalize_shared(rows):
-    \"\"\"Map every basin's discharge onto ONE log-scaled 0..1 range.
+def linear_normalize_shared(rows):
+    \"\"\"Map every basin's discharge onto ONE shared LINEAR 0..1 range.
 
-    Unlike a per-basin min-max (where a small river's dot can look as big as
-    a huge one at their respective peaks), this keeps dot size meaningful
-    across basins: the Amazon's dot is genuinely, visibly bigger than the
-    Danube's. log10() compresses a >10x discharge gap into something that
-    still fits on one map; MAX_SIZE below caps the biggest dot so it can
-    never dominate the plot.
+    True relative sizes, no log compression: if the Amazon carries 3x the
+    Mississippi's flow, its normalized value (and therefore its dot's area,
+    via MIN_SIZE/SCALE_RANGE below) is genuinely ~3x larger. The basin with
+    the single highest monthly value across the whole run maps to 1.0;
+    everything else is proportional to that -- nothing is clipped or
+    compressed independently of the others.
     \"\"\"
     all_q = np.concatenate([np.asarray(r["monthly_q"], dtype=float) for r in rows])
-    all_q = all_q[~np.isnan(all_q) & (all_q > 0)]
-    log_q = np.log10(all_q)
-    lo, hi = log_q.min(), log_q.max()
+    all_q = all_q[~np.isnan(all_q) & (all_q >= 0)]
+    hi = all_q.max() if len(all_q) else 0.0
     for r in rows:
         q = np.asarray(r["monthly_q"], dtype=float)
-        with np.errstate(divide="ignore"):
-            lq = np.where(q > 0, np.log10(np.where(q > 0, q, 1)), lo)
-        r["norm"] = np.clip((lq - lo) / (hi - lo), 0, 1) if hi > lo else np.full_like(lq, 0.5)
+        r["norm"] = np.clip(q / hi, 0, 1) if hi > 0 else np.zeros_like(q)
 
 
 # --- Resolve each showcase basin's main-stem reach, outlet coords, monthly series ---
@@ -1364,10 +1370,10 @@ for basin in BASINS_TO_RUN:
 print(f"Resolved {len(globe_rows)}/{len(BASINS_TO_RUN)} showcase basin(s) for the map.")
 
 if globe_rows:
-    MIN_SIZE, MAX_SIZE = 60, 500      # scatter marker *area* (points^2), matplotlib's s=
-    log_normalize_shared(globe_rows)
+    MIN_SIZE, SCALE_RANGE = 40, 1400  # scatter marker *area* (points^2), matplotlib's s=
+    linear_normalize_shared(globe_rows)
     for row in globe_rows:
-        row["size"] = MIN_SIZE + row["norm"] * (MAX_SIZE - MIN_SIZE)
+        row["size"] = MIN_SIZE + row["norm"] * SCALE_RANGE
 
     MAP_DIR = OUTPUT_DIR / "map_frames"
     MAP_DIR.mkdir(exist_ok=True)
